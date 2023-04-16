@@ -9,7 +9,7 @@
 
 #define BTP_NUMBER 8
 
-std::map<CACHE *, uint32_t> bip_rand_seed;
+std::map<CACHE *, uint64_t> bip_rand_seed;
 
 void CACHE::initialize_replacement() {
   bip_rand_seed[this] = 1103515245 + 12345;
