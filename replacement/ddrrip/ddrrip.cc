@@ -17,6 +17,7 @@
 std::map<CACHE *, unsigned> rrpv_bip_counter;
 std::map<CACHE *, std::vector<std::size_t>> rand_sets;
 std::map<std::pair<CACHE *, std::size_t>, unsigned> PSEL;
+std::map<CACHE *, uint64_t> bip_rand_counter;
 
 void CACHE::initialize_replacement() {
   // randomly selected sampler sets
@@ -35,6 +36,7 @@ void CACHE::initialize_replacement() {
 
     rand_sets[this].insert(loc, val);
   }
+  bip_rand_counter[this] = 1103515245 + 12345;
 }
 
 // called on every cache hit and cache fill
@@ -51,8 +53,10 @@ void CACHE::update_replacement_state(uint32_t cpu, uint32_t set, uint32_t way,
 
   // cache hit
   if (hit) {
+    // update RRPV
     block[set * NUM_WAY + way].rrpv = 0; // for cache hit, DRRIP always promotes
                                          // a cache line to the MRU position
+    // update LRU
     auto begin = std::next(block.begin(), set * NUM_WAY);
     auto end = std::next(begin, NUM_WAY);
     uint32_t hit_lru = std::next(begin, way)->lru;
@@ -77,7 +81,23 @@ void CACHE::update_replacement_state(uint32_t cpu, uint32_t set, uint32_t way,
     block[set * NUM_WAY + way].lru = maxRRPV - 1;
 
   // also update LRU value
-  // TODO: Insert BIP cache miss code here
+  uint32_t val = (bip_rand_seed[this] / 65536) % 100;
+  bip_rand_seed[this] = bip_rand_seed[this] * 1103515245 + 12345;
+  if (val > BTP_NUMBER) {
+    std::for_each(begin, end, [hit_lru](BLOCK &x) {
+      if (x.lru <= hit_lru) {
+        x.lru++;
+      }
+    });
+    std::next(begin, way)->lru = 0; // promote to the MRU position
+  } else {
+    std::for_each(begin, end, [hit_lru](BLOCK &x) {
+      if (x.lru >= hit_lru) {
+        x.lru--;
+      }
+    });
+    std::next(begin, way)->lru = NUM_WAY - 1; // demote to the LRU position
+  }
 }
 
 // find replacement victim
