@@ -4,6 +4,7 @@
 
 #include "cache.h"
 
+#define BTP_NUMBER 8
 #define maxRRPV 3
 #define maxLRU NUM_WAY - 1
 #define NUM_POLICY 2
@@ -18,6 +19,7 @@ std::map<CACHE *, unsigned> rrpv_bip_counter;
 std::map<CACHE *, std::vector<std::size_t>> rand_sets;
 std::map<std::pair<CACHE *, std::size_t>, unsigned> PSEL;
 std::map<CACHE *, uint64_t> bip_rand_counter;
+std::map<CACHE *, uint64_t> bip_rand_seed;
 
 void CACHE::initialize_replacement() {
   // randomly selected sampler sets
@@ -59,7 +61,7 @@ void CACHE::update_replacement_state(uint32_t cpu, uint32_t set, uint32_t way,
     // update LRU
     auto begin = std::next(block.begin(), set * NUM_WAY);
     auto end = std::next(begin, NUM_WAY);
-    uint32_t hit_lru = std::next(begin, way)->lru;
+    uint64_t hit_lru = std::next(begin, way)->lru;
     std::for_each(begin, end, [hit_lru](BLOCK &x) {
       if (x.lru <= hit_lru)
         x.lru++;
@@ -74,6 +76,10 @@ void CACHE::update_replacement_state(uint32_t cpu, uint32_t set, uint32_t way,
   // first update RRPV value
   block[set * NUM_WAY + way].lru = maxRRPV;
 
+  auto begin = std::next(block.begin(), set * NUM_WAY);
+  auto end = std::next(begin, NUM_WAY);
+  uint64_t hit_lru = std::next(begin, way)->lru;
+
   rrpv_bip_counter[this]++;
   if (rrpv_bip_counter[this] == BIP_MAX)
     rrpv_bip_counter[this] = 0;
@@ -81,9 +87,9 @@ void CACHE::update_replacement_state(uint32_t cpu, uint32_t set, uint32_t way,
     block[set * NUM_WAY + way].lru = maxRRPV - 1;
 
   // also update LRU value
-  uint32_t val = (bip_rand_seed[this] / 65536) % 100;
+  uint64_t val = (bip_rand_seed[this] / 65536) % 100;
   bip_rand_seed[this] = bip_rand_seed[this] * 1103515245 + 12345;
-  if (val > BTP_NUMBER) {
+  if(val > BTP_NUMBER) {
     std::for_each(begin, end, [hit_lru](BLOCK &x) {
       if (x.lru <= hit_lru) {
         x.lru++;
