@@ -1,3 +1,7 @@
+# Multicore Resource
+Link: https://drive.google.com/drive/folders/18oI50w5UYmjKyOSD9RKCqBnbO2XG0hPq?usp=share_link 
+
+
 <p align="center">
   <h1 align="center"> ChampSim </h1>
   <p> ChampSim is a trace-based simulator for a microarchitecture study. You can sign up to the public mailing list by sending an empty mail to champsim+subscribe@googlegroups.com. If you have questions about how to use ChampSim, you can often receive a quicker response on the mailing list. Please reserve GitHub Issues for bugs. <p>
