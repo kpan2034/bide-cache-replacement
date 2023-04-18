@@ -83,17 +83,34 @@ uint32_t CACHE::find_victim(uint32_t cpu, uint64_t instr_id, uint32_t set,
     stats[this].num_diff_rrpv_same++;
   }
 
-  // if not found, increment the RRPV values of blocks of the same application
-  while (victim == end) {
-    std::for_each(begin, end, [cpu](BLOCK &x) {
-      if (x.cpu == cpu) {
-        x.lru++;
-      }
-    });
+  if (ct > 0) {
+    // if not found, increment the RRPV values of blocks of the same
+    // application
+    while (victim == end) {
+      std::for_each(begin, end, [cpu](BLOCK &x) {
+        if (x.cpu == cpu) {
+          x.rrpv++;
+        }
+      });
 
-    victim = std::find_if(begin, end, [](BLOCK x) { return x.lru == maxRRPV; });
+      victim =
+          std::find_if(begin, end, [](BLOCK x) { return x.rrpv == maxRRPV; });
+    }
+
+    way = std::distance(begin, victim);
+  } else {
+    // decay rrpv of everything
+    // if not found, increment the RRPV values of blocks of the same
+    // application
+    while (victim == end) {
+      std::for_each(begin, end, [cpu](BLOCK &x) { x.rrpv++; });
+
+      victim =
+          std::find_if(begin, end, [](BLOCK x) { return x.rrpv == maxRRPV; });
+    }
+
+    way = std::distance(begin, victim);
   }
-  uint32_t way = std::distance(begin, victim);
 
   // If the EbIS is full, then evict a block
   if (ebis[this].size() == EBIS_SIZE) {
