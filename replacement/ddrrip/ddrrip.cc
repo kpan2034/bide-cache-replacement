@@ -84,12 +84,12 @@ void CACHE::update_replacement_state(uint32_t cpu, uint32_t set, uint32_t way,
   if (rrpv_bip_counter[this] == BIP_MAX)
     rrpv_bip_counter[this] = 0;
   if (rrpv_bip_counter[this] == 0)
-    block[set * NUM_WAY + way].lru = maxRRPV - 1;
+    block[set * NUM_WAY + way].rrpv = maxRRPV - 1;
 
   // also update LRU value
   uint64_t val = (bip_rand_seed[this] / 65536) % 100;
   bip_rand_seed[this] = bip_rand_seed[this] * 1103515245 + 12345;
-  if(val > BTP_NUMBER) {
+  if (val > BTP_NUMBER) {
     std::for_each(begin, end, [hit_lru](BLOCK &x) {
       if (x.lru <= hit_lru) {
         x.lru++;
