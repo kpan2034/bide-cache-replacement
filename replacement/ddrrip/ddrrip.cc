@@ -145,6 +145,9 @@ uint32_t CACHE::find_victim(uint32_t cpu, uint64_t instr_id, uint32_t set,
     }
   } else if ((leader - begin) % 2 == 0) // even index sets follow DRRIP
   {
+    // UPDATE PSEL
+    if (PSEL[std::make_pair(this, cpu)] > 0)
+      PSEL[std::make_pair(this, cpu)]--;
     // find maxRRPV line and evict
     // look for the maxRRPV line
     auto begin = std::next(std::begin(block), set * NUM_WAY);
@@ -162,6 +165,8 @@ uint32_t CACHE::find_victim(uint32_t cpu, uint64_t instr_id, uint32_t set,
     return std::distance(begin, victim);
   } else if ((leader - begin) % 2 == 1) // odd index sets follow BIP
   {
+    if (PSEL[std::make_pair(this, cpu)] < PSEL_MAX)
+      PSEL[std::make_pair(this, cpu)]++;
     // find LRU line and evict
     return std::distance(current_set,
                          std::max_element(current_set,
