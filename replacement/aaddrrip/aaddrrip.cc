@@ -1,4 +1,3 @@
-#include <_types/_uint32_t.h>
 #include <algorithm>
 #include <cstdio>
 #include <deque>
@@ -77,7 +76,6 @@ void CACHE::update_replacement_state(uint32_t cpu, uint32_t set, uint32_t way,
                                      uint64_t full_addr, uint64_t ip,
                                      uint64_t victim_addr, uint32_t type,
                                      uint8_t hit) {
-  std::cout << "update_replacement_state" << std::endl;
   // do not update replacement state for writebacks
   if (type == WRITEBACK) {
     block[set * NUM_WAY + way].rrpv = maxRRPV - 1;
@@ -103,7 +101,6 @@ void CACHE::update_replacement_state(uint32_t cpu, uint32_t set, uint32_t way,
                                     // a cache line to the MRU position
     return;
   }
-  std::cout << "miss" << std::endl;
 
   // cache miss
   // Find if the element is in the EBIS
@@ -114,7 +111,6 @@ void CACHE::update_replacement_state(uint32_t cpu, uint32_t set, uint32_t way,
   });
 
   bool inEbis = (loc != ebisEnd);
-  std::cout << "inEbis: " << inEbis << std::endl;
 
   // Get iterators to this cache set
   auto begin = std::next(block.begin(), set * NUM_WAY);
@@ -163,14 +159,12 @@ void CACHE::update_replacement_state(uint32_t cpu, uint32_t set, uint32_t way,
       std::next(begin, way)->lru = NUM_WAY - 1; // demote to the LRU position
     }
   }
-  cout << "done" << endl;
 }
 
 // find replacement victim
 uint32_t CACHE::find_victim(uint32_t cpu, uint64_t instr_id, uint32_t set,
                             const BLOCK *current_set, uint64_t ip,
                             uint64_t full_addr, uint32_t type) {
-  std::cout << "find_victim" << std::endl;
   // figure out if this set is a leader or follower set
   auto setBegin =
       std::next(std::begin(rand_sets[this]), cpu * NUM_POLICY * SDM_SIZE);
@@ -181,10 +175,8 @@ uint32_t CACHE::find_victim(uint32_t cpu, uint64_t instr_id, uint32_t set,
 
   if (leader == setEnd) // follower sets
   {
-    std::cout << "follower" << std::endl;
     if (PSEL[std::make_pair(this, cpu)] > PSEL_THRS) // follow DDRIP
     {
-      std::cout << "DDRRIP" << std::endl;
       // find maxRRPV line and evict
       // look for the maxRRPV line of this application
       auto begin = std::next(std::begin(block), set * NUM_WAY);
@@ -237,7 +229,6 @@ uint32_t CACHE::find_victim(uint32_t cpu, uint64_t instr_id, uint32_t set,
       }
     } else // follow BIP
     {
-      std::cout << "LRU" << std::endl;
       // find LRU line and evict
       way = std::distance(current_set,
                           std::max_element(current_set,
@@ -246,7 +237,9 @@ uint32_t CACHE::find_victim(uint32_t cpu, uint64_t instr_id, uint32_t set,
     }
   } else if ((leader - setBegin) % 2 == 0) // even index sets follow DRRIP
   {
-    std::cout << "DDRRIP" << std::endl;
+    // UPDATE PSEL
+    if (PSEL[std::make_pair(this, cpu)] > 0)
+      PSEL[std::make_pair(this, cpu)]--;
     // find maxRRPV line and evict
     // look for the maxRRPV line
     auto begin = std::next(std::begin(block), set * NUM_WAY);
@@ -299,7 +292,8 @@ uint32_t CACHE::find_victim(uint32_t cpu, uint64_t instr_id, uint32_t set,
     }
   } else if ((leader - setBegin) % 2 == 1) // odd index sets follow BIP
   {
-    std::cout << "LRU" << std::endl;
+    if (PSEL[std::make_pair(this, cpu)] < PSEL_MAX)
+      PSEL[std::make_pair(this, cpu)]++;
     // find LRU line and evict
     way = std::distance(current_set,
                         std::max_element(current_set,
@@ -311,7 +305,6 @@ uint32_t CACHE::find_victim(uint32_t cpu, uint64_t instr_id, uint32_t set,
 
   // If the EbIS is full, then evict a block
   if (ebis[this].size() == EBIS_SIZE) {
-    std::cout << "EbIS full" << std::endl;
 
     // Figure out target application
     uint32_t victim_cpu = app_to_evict[this] % NUM_CPUS;
@@ -349,7 +342,6 @@ uint32_t CACHE::find_victim(uint32_t cpu, uint64_t instr_id, uint32_t set,
     ebis[this].erase(loc);
   }
   ebis[this].push_back({cpu, set, full_addr});
-  std::cout << "updated EbIS" << std::endl;
   return way;
 }
 
