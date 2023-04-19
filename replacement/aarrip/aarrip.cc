@@ -44,7 +44,7 @@ std::map<CACHE *, uint32_t> app_to_evict;
 // initialize replacement state
 void CACHE::initialize_replacement() {
   for (auto &blk : block)
-    blk.lru = maxRRPV;
+    blk.rrpv = maxRRPV;
   ebis[this] = std::deque<ebis_entry_t>(EBIS_SIZE);
   stats[this] = stat_entry_t{0, 0, 0};
   app_to_evict[this] = 0;
@@ -54,6 +54,7 @@ void CACHE::initialize_replacement() {
 uint32_t CACHE::find_victim(uint32_t cpu, uint64_t instr_id, uint32_t set,
                             const BLOCK *current_set, uint64_t ip,
                             uint64_t full_addr, uint32_t type) {
+  std::cout << "find_victim" << std::endl;
 
   /*
    * First look for the maxRRPV line
@@ -67,15 +68,17 @@ uint32_t CACHE::find_victim(uint32_t cpu, uint64_t instr_id, uint32_t set,
   auto begin = std::next(std::begin(block), set * NUM_WAY);
   auto end = std::next(begin, NUM_WAY);
   auto victim = std::find_if(begin, end, [cpu](BLOCK x) {
-    return x.lru == maxRRPV && x.cpu == cpu;
+    return x.rrpv == maxRRPV && x.cpu == cpu;
   }); // hijack the lru field
   if (victim != end) {
     stats[this].num_max_rrpv_same++;
   }
+  uint32_t way;
 
   // if not found, select maxRRPV line of any application
   if (victim == end) {
-    victim = std::find_if(begin, end, [](BLOCK x) { return x.lru == maxRRPV; });
+    victim =
+        std::find_if(begin, end, [](BLOCK x) { return x.rrpv == maxRRPV; });
   }
   if (victim != end) {
     stats[this].num_max_rrpv_other++;
@@ -83,7 +86,16 @@ uint32_t CACHE::find_victim(uint32_t cpu, uint64_t instr_id, uint32_t set,
     stats[this].num_diff_rrpv_same++;
   }
 
+  uint32_t ct = 0;
+  // check if this application has any blocks in this set
+  std::for_each(begin, end, [&ct, cpu](BLOCK &x) {
+    if (x.cpu == cpu) {
+      ct++;
+    }
+  });
+
   if (ct > 0) {
+    std::cout << "non-zero count" << std::endl;
     // if not found, increment the RRPV values of blocks of the same
     // application
     while (victim == end) {
@@ -96,20 +108,22 @@ uint32_t CACHE::find_victim(uint32_t cpu, uint64_t instr_id, uint32_t set,
       victim =
           std::find_if(begin, end, [](BLOCK x) { return x.rrpv == maxRRPV; });
     }
-
     way = std::distance(begin, victim);
+    std::cout << "victim found: " << way << std::endl;
   } else {
+    std::cout << "zero count" << std::endl;
     // decay rrpv of everything
     // if not found, increment the RRPV values of blocks of the same
     // application
     while (victim == end) {
-      std::for_each(begin, end, [cpu](BLOCK &x) { x.rrpv++; });
+      std::for_each(begin, end, [](BLOCK &x) { x.rrpv++; });
 
       victim =
           std::find_if(begin, end, [](BLOCK x) { return x.rrpv == maxRRPV; });
     }
 
     way = std::distance(begin, victim);
+    std::cout << "victim found: " << way << std::endl;
   }
 
   // If the EbIS is full, then evict a block
@@ -161,12 +175,12 @@ void CACHE::update_replacement_state(uint32_t cpu, uint32_t set, uint32_t way,
                                      uint8_t hit) {
   // do not update replacement state for writebacks
   if (type == WRITEBACK) {
-    block[set * NUM_WAY + way].lru = maxRRPV - 1;
+    block[set * NUM_WAY + way].rrpv = maxRRPV - 1;
     return;
   }
 
   if (hit) {
-    block[set * NUM_WAY + way].lru = 0;
+    block[set * NUM_WAY + way].rrpv = 0;
     return;
   }
   // miss
@@ -178,10 +192,10 @@ void CACHE::update_replacement_state(uint32_t cpu, uint32_t set, uint32_t way,
     return x.set == set && x.full_addr == full_addr;
   });
   if (loc == end) { // not found in EbIS
-    block[set * NUM_WAY + way].lru = maxRRPV - 1;
+    block[set * NUM_WAY + way].rrpv = maxRRPV - 1;
     return;
   }
-  block[set * NUM_WAY + way].lru = 0;
+  block[set * NUM_WAY + way].rrpv = 0;
 }
 
 // use this function to print out your own stats at the end of simulation
